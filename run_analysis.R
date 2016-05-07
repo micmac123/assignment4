@@ -1,65 +1,63 @@
-##Download the file
+# Merge the training and test sets
+
 
     if(!file.exists("./data")){dir.create("./data")}
-    fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-    download.file(fileUrl,destfile="./data/Dataset.zip",method="curl")
-    
+    fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+    download.file(fileUrl,destfile="./data/Dataset.zip")
+
     unzip(zipfile="./data/Dataset.zip",exdir="./data")
     path_ref <- file.path("./data" , "UCI HAR Dataset")
     files<-list.files(path_ref, recursive=TRUE)
-    
-##Read the Files
-    
-    dataActTest  <- read.table(file.path(path_ref, "test" , "Y_test.txt" ),header = FALSE)
-    dataActTrain <- read.table(file.path(path_ref, "train", "Y_train.txt"),header = FALSE)
 
-    dataSubjTrain <- read.table(file.path(path_ref, "train", "subject_train.txt"),header = FALSE)
-    dataSubjTest  <- read.table(file.path(path_ref, "test" , "subject_test.txt"),header = FALSE)
 
-    dataFeatTest  <- read.table(file.path(path_ref, "test" , "X_test.txt" ),header = FALSE)
-    dataFeatTrain <- read.table(file.path(path_ref, "train", "X_train.txt"),header = FALSE)
-    
-##Merges the training and the test sets
-    
-    dataSub <- rbind(dataSubjTrain, dataSubjTest)
-    dataAct<- rbind(dataActTrain, dataActTest)
-    dataFeat<- rbind(dataFeatTrain, dataFeatTest)
-    
-##Set Variable Names  
-    
-    names(dataSubj)<-c("subject")
-    names(dataAct)<- c("activity")
-    dataFeatNames <- read.table(file.path(path_ref, "features.txt"),head=FALSE)
-    names(dataFeat)<- dataFeatNames$V2  
+    x_train <- read.table(file.path(path_ref, "train", "X_train.txt"),header = FALSE)
+    y_train <- read.table(file.path(path_ref, "train", "Y_train.txt"),header = FALSE)
+    subject_train <- read.table(file.path(path_ref, "train", "subject_train.txt"),header = FALSE)
 
-## Merge Columns
-    
-    dataCombine <- cbind(dataSubject, dataActivity)
-    Data <- cbind(dataFeatures, dataCombine)
-    
-##Extract measures
+    x_test <- read.table(file.path(path_ref, "test" , "X_test.txt" ),header = FALSE)
+    y_test <- read.table(file.path(path_ref, "test" , "Y_test.txt" ),header = FALSE)
+    subject_test <- read.table(file.path(path_ref, "test" , "subject_test.txt"),header = FALSE)
 
-    subdataFeatNames<-dataFeatNames$V2[grep("mean\\(\\)|std\\(\\)", dataFeatNames$V2)]
-    selectedNames<-c(as.character(subdataFeatNames), "subject", "activity" )
-    Data<-subset(Data,select=selectedNames)
+# create data set
+    x_data <- rbind(x_train, x_test)
+    y_data <- rbind(y_train, y_test)
+    subject_data <- rbind(subject_train, subject_test)
 
-   
-##Name the activities
-        
-    activityLabels <- read.table(file.path(path_ref, "activity_labels.txt"),header = FALSE)
-    names(Data)<-gsub("^t", "time", names(Data))
-    names(Data)<-gsub("^f", "frequency", names(Data))
-    names(Data)<-gsub("Acc", "Accelerometer", names(Data))
-    names(Data)<-gsub("Gyro", "Gyroscope", names(Data))
-    names(Data)<-gsub("Mag", "Magnitude", names(Data))
-    names(Data)<-gsub("BodyBody", "Body", names(Data))
-    
-##Create second data set
-    
-    library(plyr);
-    Data2<-aggregate(. ~subject + activity, Data, mean)
-    Data2<-Data2[order(Data2$subject,Data2$activity),]
-    write.table(Data2, file = "tidydata.txt",row.name=FALSE)
-    
-    
-    
+
+
+# Extract measurements
+
+    features <- read.table(file.path(path_ref, "features.txt"),head=FALSE)
+
+
+    mean_and_std_features <- grep("-(mean|std)\\(\\)", features[, 2])
+
+# subset
+    x_data <- x_data[, mean_and_std_features]
+
+# correct names
+    names(x_data) <- features[mean_and_std_features, 2]
+
+
+# Name Activities
+
+    activities <- read.table(file.path(path_ref, "activity_labels.txt"),head=FALSE)
+
+    y_data[, 1] <- activities[y_data[, 1], 2]
+
+    names(y_data) <- "activity"
+
+
+# Appropriately label
+
+# correct name
+    names(subject_data) <- "subject"
+
+# bind all sets
+    all_data <- cbind(x_data, y_data, subject_data)
+
+
+# Create a second, independent tidy data set
+
+    averages_data <- ddply(all_data, .(subject, activity), function(x) colMeans(x[, 1:66]))
+    write.table(averages_data, "tidy.txt", row.name=FALSE)
